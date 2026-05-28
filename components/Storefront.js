@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 const OWNER_WHATSAPP = "51900987261";
+const STORE_ADDRESS = "Jr. Tupac Amaru s/n, esquina de la plaza principal, Pampa Cangallo, Ayacucho, Peru";
 
 const emptyCustomer = {
   fullName: "",
@@ -31,11 +32,21 @@ function dateLabel(value) {
   }).format(new Date(value));
 }
 
-function buildWhatsAppUrl(order, customer, paymentMethod) {
-  const itemsText = order.items
+function productImageLink(origin, item) {
+  if (!origin || !item.productId) return "";
+  return `${origin}/api/products/${item.productId}/image`;
+}
+
+function buildWhatsAppUrl(order, customer, paymentMethod, cartItems, origin) {
+  const sourceItems = cartItems.length > 0 ? cartItems : order.items;
+  const itemsText = sourceItems
     .map((item) => {
       const lineTotal = item.lineTotal ?? Number(item.unitPrice || 0) * Number(item.quantity || 1);
-      return `- ${item.quantity} x ${item.name}: ${money(lineTotal)}`;
+      const imageUrl = productImageLink(origin, item);
+      return [
+        `- ${item.quantity} x ${item.name}: ${money(lineTotal)}`,
+        imageUrl ? `  Foto: ${imageUrl}` : ""
+      ].filter(Boolean).join("\n");
     })
     .join("\n");
 
@@ -49,11 +60,14 @@ function buildWhatsAppUrl(order, customer, paymentMethod) {
     customer.district ? `Distrito: ${customer.district}` : "",
     `Fecha: ${dateLabel(order.fulfillmentDate)}`,
     `Metodo de pago: ${paymentMethod}`,
+    `Tienda: ${STORE_ADDRESS}`,
     "",
     "Productos:",
     itemsText,
     "",
-    `Total a pagar: ${money(order.totalAmount)}`
+    `Total a pagar: ${money(order.totalAmount)}`,
+    "",
+    "Por favor envie aqui la captura de pago del pedido si pago por Yape, Plin, transferencia o tarjeta."
   ].filter(Boolean).join("\n");
 
   return `https://wa.me/${OWNER_WHATSAPP}?text=${encodeURIComponent(text)}`;
@@ -104,6 +118,7 @@ export default function Storefront() {
           productId: product.id,
           name: product.name,
           price: product.price,
+          imageUrl: product.imageUrl,
           quantity: 1
         }
       ];
@@ -150,7 +165,13 @@ export default function Storefront() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "No se pudo registrar el pedido.");
 
-      const nextWhatsappUrl = buildWhatsAppUrl(data.order, currentCustomer, paymentMethod);
+      const nextWhatsappUrl = buildWhatsAppUrl(
+        data.order,
+        currentCustomer,
+        paymentMethod,
+        cart,
+        window.location.origin
+      );
       setWhatsappUrl(nextWhatsappUrl);
       setNotice(`Pedido registrado: ${data.order.orderCode}. Total ${money(data.order.totalAmount)}. Se abrira WhatsApp para enviar el detalle al dueno.`);
       setCart([]);
@@ -173,13 +194,12 @@ export default function Storefront() {
           <img className="brand-logo" src="/logo-alarcon.svg" alt="Panaderia Pasteleria y fuente de soda" />
           <span className="brand-copy">
             <strong>Panadería Pastelería y fuente de soda</strong>
-            <span>Pedidos, reservas y atención por WhatsApp</span>
+            <span>Jr. Tupac Amaru s/n, Pampa Cangallo</span>
           </span>
         </a>
         <nav className="nav-actions" aria-label="Acciones principales">
           <a className="button secondary" href="/admin/login">Admin</a>
-          <a className="button whatsapp" href={`https://wa.me/${OWNER_WHATSAPP}`} target="_blank" rel="noreferrer">WhatsApp</a>
-          <a className="button" href="#catalogo">Pedir ahora</a>
+          <a className="button" href="#checkout">Pedir ahora</a>
         </nav>
       </header>
 
@@ -192,8 +212,9 @@ export default function Storefront() {
           </p>
           <div className="hero-actions">
             <a className="button" href="#catalogo">Ver catalogo</a>
-            <a className="button secondary" href="#checkout">Reservar producto</a>
+            <a className="button secondary" href="#checkout">Pedir ahora</a>
           </div>
+          <p className="store-address">{STORE_ADDRESS}</p>
           <div className="service-strip" aria-label="Servicios destacados">
             <span>Pedidos online</span>
             <span>Reservas</span>
@@ -290,7 +311,7 @@ export default function Storefront() {
                 </label>
                 <label className="field full">
                   <span>Lugar o direccion</span>
-                  <input value={customer.deliveryAddress} onChange={(event) => setCustomer({ ...customer, deliveryAddress: event.target.value })} required />
+                  <input value={customer.deliveryAddress} onChange={(event) => setCustomer({ ...customer, deliveryAddress: event.target.value })} placeholder="Direccion para entrega o recojo" required />
                 </label>
                 <label className="field">
                   <span>Distrito</span>
@@ -306,6 +327,9 @@ export default function Storefront() {
                     {paymentMethods.map((method) => <option key={method} value={method}>{method}</option>)}
                   </select>
                 </label>
+                <p className="payment-hint full">
+                  Si pagas por Yape, Plin, transferencia o tarjeta, envia tu captura de pago en el WhatsApp que se abrira.
+                </p>
                 <label className="field full">
                   <span>Nota del pedido</span>
                   <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Ejemplo: sin crema, recoger a las 6 p.m." />

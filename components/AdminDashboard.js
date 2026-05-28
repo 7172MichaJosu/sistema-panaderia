@@ -12,13 +12,16 @@ const emptyProduct = {
   isAvailable: true
 };
 
-const statuses = ["RECIBIDO", "CONFIRMADO", "EN_PREPARACION", "LISTO", "ENTREGADO", "CANCELADO"];
+const STORE_ADDRESS = "Jr. Tupac Amaru s/n, esquina de la plaza principal, Pampa Cangallo, Ayacucho, Peru";
+
+const statuses = ["RECIBIDO", "CONFIRMADO", "EN_PREPARACION", "LISTO", "EN_CAMINO", "ENTREGADO", "CANCELADO"];
 
 const statusLabels = {
   RECIBIDO: "Recibido",
   CONFIRMADO: "Confirmado",
   EN_PREPARACION: "En preparacion",
   LISTO: "Listo",
+  EN_CAMINO: "En camino",
   ENTREGADO: "Entregado",
   CANCELADO: "Cancelado"
 };
@@ -184,6 +187,66 @@ function ChartCard({ title, children }) {
   );
 }
 
+function normalizePeruPhone(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (digits.startsWith("51")) return digits;
+  if (digits.length === 9) return `51${digits}`;
+  return digits;
+}
+
+function productImageLink(origin, item) {
+  if (!origin || !item.productId) return "";
+  return `${origin}/api/products/${item.productId}/image`;
+}
+
+function buildCustomerStatusUrl(order) {
+  const phone = normalizePeruPhone(order.customer.phone);
+  const products = order.items.map((item) => `${item.quantity} x ${item.name}`).join(", ");
+  const firstImage = productImageLink(window.location.origin, order.items[0] || {});
+  const statusText = order.status === "EN_CAMINO"
+    ? "tu pedido ya va en camino"
+    : `tu pedido esta: ${statusLabels[order.status] || order.status}`;
+  const text = [
+    `Hola ${order.customer.fullName}, ${statusText}.`,
+    `Pedido: ${order.orderCode}`,
+    products ? `Producto: ${products}` : "",
+    `Total: ${money(order.totalAmount)}`,
+    firstImage ? `Foto: ${firstImage}` : "",
+    `Tienda: ${STORE_ADDRESS}`,
+    "Gracias por comprar en Panaderia Pasteleria y fuente de soda."
+  ].filter(Boolean).join("\n");
+
+  return phone ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}` : "";
+}
+
+function fileToProductImage(file) {
+  return new Promise((resolve, reject) => {
+    if (!file || !/^image\/(png|jpeg|jpg|webp)$/i.test(file.type)) {
+      reject(new Error("Selecciona una imagen JPG o PNG."));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("No se pudo leer la imagen."));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error("No se pudo preparar la imagen."));
+      image.onload = () => {
+        const maxSize = 900;
+        const ratio = Math.min(1, maxSize / Math.max(image.width, image.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.width * ratio));
+        canvas.height = Math.max(1, Math.round(image.height * ratio));
+        const context = canvas.getContext("2d");
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.82));
+      };
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function AdminDashboard() {
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -317,6 +380,8 @@ export default function AdminDashboard() {
   async function removeProduct(id) {
     setError("");
     setNotice("");
+    const ok = window.confirm("Este producto se ocultara del catalogo publico. Puedes volver a activarlo editandolo.");
+    if (!ok) return;
     const response = await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
     const data = await response.json();
     if (!response.ok) {
@@ -325,6 +390,22 @@ export default function AdminDashboard() {
     }
     setNotice("Producto retirado del catalogo.");
     await loadProducts();
+  }
+
+  async function handleImageFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setError("");
+    setNotice("");
+
+    try {
+      const imageUrl = await fileToProductImage(file);
+      setProductForm((current) => ({ ...current, imageUrl }));
+      setNotice("Imagen cargada. Ahora completa el producto y guarda.");
+    } catch (imageError) {
+      setError(imageError.message);
+    }
   }
 
   async function changeStatus(id, status) {
@@ -342,6 +423,15 @@ export default function AdminDashboard() {
     setOrders((current) => current.map((order) => (order.id === id ? data.order : order)));
   }
 
+  function notifyCustomer(order) {
+    const url = buildCustomerStatusUrl(order);
+    if (!url) {
+      setError("Este pedido no tiene telefono valido para WhatsApp.");
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
   async function logout() {
     await fetch("/api/admin/logout", { method: "POST" });
     window.location.href = "/admin/login";
@@ -356,7 +446,7 @@ export default function AdminDashboard() {
           <img className="brand-logo" src="/logo-alarcon.svg" alt="Panaderia Pasteleria y fuente de soda" />
           <span className="brand-copy">
             <strong>Panadería Pastelería y fuente de soda</strong>
-            <span>Administracion</span>
+            <span>{STORE_ADDRESS}</span>
           </span>
         </div>
         <div className="nav-actions">
@@ -417,9 +507,15 @@ export default function AdminDashboard() {
                   </select>
                 </label>
                 <label className="field full">
-                  <span>URL de imagen</span>
-                  <input value={productForm.imageUrl} onChange={(event) => setProductForm({ ...productForm, imageUrl: event.target.value })} required />
+                  <span>Foto del producto JPG o PNG</span>
+                  <input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" onChange={handleImageFile} required={!productForm.imageUrl} />
                 </label>
+                {productForm.imageUrl ? (
+                  <div className="image-preview full">
+                    <img src={productForm.imageUrl} alt="Vista previa del producto" />
+                    <span>Foto cargada correctamente</span>
+                  </div>
+                ) : null}
                 <button className="button full" type="submit">{editingId ? "Actualizar" : "Crear"}</button>
                 {editingId ? <button className="button secondary full" type="button" onClick={resetProductForm}>Cancelar</button> : null}
               </form>
@@ -450,7 +546,7 @@ export default function AdminDashboard() {
                         <td>
                           <div className="row-actions">
                             <button className="button secondary" type="button" onClick={() => editProduct(product)}>Editar</button>
-                            <button className="button danger" type="button" onClick={() => removeProduct(product.id)}>Quitar</button>
+                            <button className="button danger" type="button" onClick={() => removeProduct(product.id)}>Borrar</button>
                           </div>
                         </td>
                       </tr>
@@ -492,7 +588,10 @@ export default function AdminDashboard() {
                       </td>
                       <td>
                         {order.items.map((item) => (
-                          <div key={`${order.id}-${item.productId}`}>{item.quantity} x {item.name}</div>
+                          <div className="order-product-line" key={`${order.id}-${item.productId}`}>
+                            <img src={`/api/products/${item.productId}/image`} alt={item.name} />
+                            <span>{item.quantity} x {item.name}</span>
+                          </div>
                         ))}
                       </td>
                       <td>{dateLabel(order.fulfillmentDate || order.createdAt)}</td>
@@ -504,6 +603,9 @@ export default function AdminDashboard() {
                             {statuses.map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
                           </select>
                         </label>
+                        <button className="button secondary full" type="button" onClick={() => notifyCustomer(order)}>
+                          Avisar por WhatsApp
+                        </button>
                       </td>
                     </tr>
                   ))}

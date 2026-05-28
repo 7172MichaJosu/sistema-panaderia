@@ -70,14 +70,20 @@ a {
 }
 
 .brand-logo {
-  width: 46px;
-  height: 46px;
+  width: 58px;
+  height: 58px;
   flex: 0 0 auto;
   border-radius: 50%;
   object-fit: cover;
   background: #fff;
   border: 2px solid rgba(36, 27, 31, 0.18);
   box-shadow: 0 10px 22px rgba(36, 27, 31, 0.12);
+}
+
+.topbar .brand-logo,
+.admin-header .brand-logo {
+  width: 64px;
+  height: 64px;
 }
 
 .brand-icon {
@@ -158,6 +164,17 @@ a {
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 26px;
+}
+
+.store-address {
+  display: inline-flex;
+  width: auto;
+  max-width: min(720px, 100%);
+  margin-top: 18px;
+  border-left: 4px solid #ffe2ad;
+  padding-left: 12px;
+  color: #fff4e7;
+  font-weight: 800;
 }
 
 .service-strip {
@@ -462,9 +479,40 @@ a {
   outline: none;
 }
 
+.field input[type="file"] {
+  padding: 8px;
+}
+
 .field textarea {
   min-height: 82px;
   resize: vertical;
+}
+
+.image-preview {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  padding: 10px;
+}
+
+.image-preview.full {
+  grid-column: 1 / -1;
+}
+
+.image-preview img {
+  width: 100%;
+  max-height: 190px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.image-preview span {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 700;
 }
 
 .field input:focus,
@@ -478,6 +526,21 @@ a {
   margin-top: 18px;
   padding-top: 18px;
   border-top: 1px solid var(--line);
+}
+
+.payment-hint {
+  margin: -2px 0 0;
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  border-radius: 8px;
+  background: #eef8f6;
+  color: #0f5c56;
+  padding: 10px;
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.payment-hint.full {
+  grid-column: 1 / -1;
 }
 
 .cart-title {
@@ -671,6 +734,23 @@ td small {
   color: var(--muted);
   line-height: 1.4;
   white-space: pre-wrap;
+}
+
+.order-product-line {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.order-product-line img {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--surface-strong);
 }
 
 th {
