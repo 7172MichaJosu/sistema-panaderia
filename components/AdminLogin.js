@@ -33,9 +33,9 @@ export default function AdminLogin() {
     <main className="login-page">
       <section className="login-hero">
         <div className="brand-mark">
-          <span className="brand-icon">DH</span>
+          <span className="brand-icon">PA</span>
           <span className="brand-copy">
-            <strong>Dulce Horno</strong>
+            <strong>Panaderia Pasteleria Alarcón Fuente De Soda</strong>
             <span>Administracion</span>
           </span>
         </div>

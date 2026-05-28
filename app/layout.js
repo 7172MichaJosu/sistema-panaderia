@@ -1,9 +1,9 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Dulce Horno | Panaderia y Pasteleria",
+  title: "Panaderia Pasteleria Alarcón Fuente De Soda | Panaderia y Pasteleria",
   description: "Pedidos y reservas online para panaderia y pasteleria.",
-  applicationName: "Dulce Horno",
+  applicationName: "Panaderia Pasteleria Alarcón Fuente De Soda",
   manifest: "/manifest.webmanifest"
 };
 

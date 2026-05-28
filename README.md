@@ -1,6 +1,6 @@
 # Sistema de venta para panaderia y pasteleria
 
-Base inicial para **Dulce Horno**: tienda publica, pedidos/reservas online, panel administrador y scripts para SQL Server.
+Base inicial para **Panaderia Pasteleria Alarcón Fuente De Soda**: tienda publica, pedidos/reservas online, panel administrador y scripts para SQL Server.
 
 ## Incluye
 
@@ -90,6 +90,13 @@ Con SQL Server:
 sqlcmd -S TU_SERVIDOR -U TU_USUARIO_ADMIN -P TU_PASSWORD -i database/sqlserver/schema.sql
 sqlcmd -S TU_SERVIDOR -U TU_USUARIO_ADMIN -P TU_PASSWORD -i database/sqlserver/seed.sql
 sqlcmd -S TU_SERVIDOR -U TU_USUARIO_ADMIN -P TU_PASSWORD -i database/sqlserver/app-user.sql
+```
+
+En Azure SQL Database, si ya creaste la base desde el portal, tambien puedes ejecutar los scripts compatibles:
+
+```bash
+sqlcmd -S TU_SERVIDOR.database.windows.net -d PanaderiaPasteleria -U TU_USUARIO_ADMIN -P TU_PASSWORD -i database/sqlserver/schema.azure.sql
+sqlcmd -S TU_SERVIDOR.database.windows.net -d PanaderiaPasteleria -U TU_USUARIO_ADMIN -P TU_PASSWORD -i database/sqlserver/seed.azure.sql
 ```
 
 3. En Vercel, entra a tu proyecto > `Settings` > `Environment Variables`.

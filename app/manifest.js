@@ -1,7 +1,7 @@
 export default function manifest() {
   return {
-    name: "Dulce Horno",
-    short_name: "Dulce Horno",
+    name: "Panaderia Pasteleria Alarcón Fuente De Soda",
+    short_name: "Alarcón Fuente",
     description: "Sistema de pedidos y reservas para panaderia y pasteleria.",
     start_url: "/",
     scope: "/",

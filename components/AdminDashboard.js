@@ -165,9 +165,9 @@ export default function AdminDashboard() {
     <main className="admin-shell">
       <header className="admin-header">
         <div className="brand-mark">
-          <span className="brand-icon">DH</span>
+          <span className="brand-icon">PA</span>
           <span className="brand-copy">
-            <strong>Dulce Horno</strong>
+            <strong>Panaderia Pasteleria Alarcón Fuente De Soda</strong>
             <span>{mode === "sqlserver" ? "SQL Server conectado" : "Modo demo"}</span>
           </span>
         </div>

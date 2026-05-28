@@ -116,10 +116,10 @@ export default function Storefront() {
     <main className="site-shell">
       <header className="topbar">
         <a className="brand-mark" href="/">
-          <span className="brand-icon">DH</span>
+          <span className="brand-icon">PA</span>
           <span className="brand-copy">
-            <strong>Dulce Horno</strong>
-            <span>Panaderia y pasteleria</span>
+            <strong>Panaderia Pasteleria Alarcón Fuente De Soda</strong>
+            <span>Panaderia, pasteleria y fuente de soda</span>
           </span>
         </a>
         <nav className="nav-actions" aria-label="Acciones principales">
@@ -131,7 +131,7 @@ export default function Storefront() {
       <section className="hero">
         <div className="hero-content">
           <p className="hero-kicker">Pedidos online y reservas</p>
-          <h1>Dulce Horno</h1>
+          <h1>Panaderia Pasteleria Alarcón Fuente De Soda</h1>
           <p>
             Panes, tortas, postres y salados listos para separar desde celular, tablet o computadora.
           </p>
