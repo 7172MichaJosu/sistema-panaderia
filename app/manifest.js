@@ -1,8 +1,8 @@
 export default function manifest() {
   return {
-    name: "Panaderia Pasteleria Alarcón Fuente De Soda",
-    short_name: "Alarcón Fuente",
-    description: "Sistema de pedidos y reservas para panaderia y pasteleria.",
+    name: "Panadería Pastelería y fuente de soda",
+    short_name: "Alarcón",
+    description: "Sistema de pedidos y reservas para panaderia, pasteleria y fuente de soda.",
     start_url: "/",
     scope: "/",
     display: "standalone",

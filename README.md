@@ -1,15 +1,17 @@
 # Sistema de venta para panaderia y pasteleria
 
-Base inicial para **Panaderia Pasteleria Alarcón Fuente De Soda**: tienda publica, pedidos/reservas online, panel administrador y scripts para SQL Server.
+Base inicial para **Panadería Pastelería y fuente de soda**: tienda publica, pedidos/reservas online, confirmacion por WhatsApp, panel administrador, reportes y scripts para SQL Server.
 
 ## Incluye
 
 - Catalogo publico compatible con celular, tablet y computadora.
-- Registro de pedido o reserva con nombres completos, DNI, telefono, correo, direccion/lugar y fecha.
+- Registro de pedido o reserva con nombres completos, telefono, direccion/lugar, metodo de pago y fecha.
+- Envio del resumen del pedido al WhatsApp del negocio.
 - Panel administrador con usuario y contrasena.
 - Crear, editar, activar/desactivar productos.
 - Ver pedidos y cambiar estado.
-- Modo demo sin base de datos para probar rapido.
+- Reportes de ventas diarias, semanales y mensuales con graficos.
+- Reportes de pedidos por estado y por tipo con graficos.
 - Scripts `schema.sql` y `seed.sql` para SQL Server.
 - Manifest PWA para instalar la web como app desde el navegador.
 

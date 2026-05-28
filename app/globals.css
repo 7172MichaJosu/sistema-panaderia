@@ -69,6 +69,17 @@ a {
   min-width: 0;
 }
 
+.brand-logo {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #fff;
+  border: 2px solid rgba(36, 27, 31, 0.18);
+  box-shadow: 0 10px 22px rgba(36, 27, 31, 0.12);
+}
+
 .brand-icon {
   display: grid;
   width: 40px;
@@ -101,11 +112,12 @@ a {
 
 .hero {
   display: grid;
-  min-height: 430px;
+  min-height: 520px;
   grid-template-columns: minmax(0, 1fr);
   align-items: end;
   background:
-    linear-gradient(90deg, rgba(36, 27, 31, 0.84), rgba(36, 27, 31, 0.34)),
+    radial-gradient(circle at 76% 28%, rgba(200, 138, 40, 0.3), transparent 28%),
+    linear-gradient(90deg, rgba(36, 27, 31, 0.88), rgba(36, 27, 31, 0.48), rgba(36, 27, 31, 0.2)),
     url("https://images.unsplash.com/photo-1517433670267-08bbd4be890f?auto=format&fit=crop&w=1800&q=82") center/cover;
   color: white;
 }
@@ -146,6 +158,26 @@ a {
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 26px;
+}
+
+.service-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.service-strip span {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  background: rgba(255, 250, 242, 0.12);
+  padding: 7px 11px;
+  color: #fff4e7;
+  font-size: 0.88rem;
+  font-weight: 700;
 }
 
 .section {
@@ -369,6 +401,14 @@ a {
   background: var(--accent);
 }
 
+.button.whatsapp {
+  background: #137f4b;
+}
+
+.button.whatsapp:hover {
+  background: #0f633c;
+}
+
 .button.danger {
   background: var(--danger);
 }
@@ -403,6 +443,12 @@ a {
   font-weight: 700;
 }
 
+.field > span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
 .field input,
 .field select,
 .field textarea {
@@ -434,6 +480,51 @@ a {
   border-top: 1px solid var(--line);
 }
 
+.cart-title {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.cart-title p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.cart-title > span {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  border-radius: 999px;
+  background: #fff4d6;
+  color: #7b520c;
+  padding: 4px 9px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.follow-link {
+  margin-top: 10px;
+}
+
+.empty-state {
+  grid-column: 1 / -1;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--muted);
+  padding: 18px;
+  text-align: center;
+}
+
+.empty-state.compact {
+  margin: 0;
+  padding: 14px;
+}
+
 .notice {
   margin-top: 14px;
   padding: 12px;
@@ -457,7 +548,8 @@ a {
   min-height: 100vh;
   grid-template-columns: minmax(0, 1fr) minmax(360px, 480px);
   background:
-    linear-gradient(90deg, rgba(36, 27, 31, 0.82), rgba(36, 27, 31, 0.25)),
+    radial-gradient(circle at 22% 22%, rgba(200, 138, 40, 0.28), transparent 25%),
+    linear-gradient(90deg, rgba(36, 27, 31, 0.86), rgba(36, 27, 31, 0.44)),
     url("https://images.unsplash.com/photo-1608198093002-ad4e005484ec?auto=format&fit=crop&w=1800&q=82") center/cover;
 }
 
@@ -513,7 +605,7 @@ a {
 
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 20px;
 }
@@ -534,7 +626,8 @@ a {
 .metric strong {
   display: block;
   margin-top: 8px;
-  font-size: 1.45rem;
+  font-size: clamp(1.05rem, 2vw, 1.45rem);
+  overflow-wrap: anywhere;
 }
 
 .admin-grid {
@@ -569,6 +662,15 @@ td {
   border-bottom: 1px solid var(--line);
   text-align: left;
   vertical-align: top;
+}
+
+td small {
+  display: block;
+  max-width: 280px;
+  margin-top: 8px;
+  color: var(--muted);
+  line-height: 1.4;
+  white-space: pre-wrap;
 }
 
 th {
@@ -627,6 +729,125 @@ th {
   color: var(--muted);
 }
 
+.reports-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.report-card {
+  min-height: 320px;
+}
+
+.bar-chart {
+  display: grid;
+  gap: 14px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: minmax(86px, 0.4fr) minmax(120px, 1fr) minmax(92px, auto);
+  align-items: center;
+  gap: 10px;
+}
+
+.bar-label {
+  color: var(--muted);
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+
+.bar-track {
+  display: block;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #f0e4d9;
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.bar-row strong {
+  color: var(--ink);
+  font-size: 0.88rem;
+  text-align: right;
+}
+
+.donut-wrap {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.donut {
+  display: grid;
+  width: 168px;
+  height: 168px;
+  place-items: center;
+  border-radius: 50%;
+  position: relative;
+}
+
+.donut::after {
+  content: "";
+  position: absolute;
+  inset: 34px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+
+.donut span {
+  position: relative;
+  z-index: 1;
+  font-size: 1.9rem;
+  font-weight: 900;
+}
+
+.legend-list {
+  display: grid;
+  gap: 10px;
+}
+
+.legend-item {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.legend-item span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.legend-item strong {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
+.legend-item em {
+  font-style: normal;
+  font-weight: 800;
+}
+
+#vercel-toolbar,
+[data-vercel-toolbar],
+vercel-live-feedback,
+iframe[src*="vercel-toolbar"],
+iframe[src*="vercel.live"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 @media (max-width: 980px) {
   .catalog-layout,
   .admin-grid {
@@ -643,6 +864,10 @@ th {
 
   .metrics-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reports-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -688,5 +913,17 @@ th {
 
   .nav-actions .button {
     flex: 1;
+  }
+
+  .donut-wrap {
+    grid-template-columns: 1fr;
+  }
+
+  .bar-row {
+    grid-template-columns: 1fr;
+  }
+
+  .bar-row strong {
+    text-align: left;
   }
 }

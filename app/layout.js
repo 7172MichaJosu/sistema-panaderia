@@ -1,9 +1,9 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Panaderia Pasteleria Alarcón Fuente De Soda | Panaderia y Pasteleria",
-  description: "Pedidos y reservas online para panaderia y pasteleria.",
-  applicationName: "Panaderia Pasteleria Alarcón Fuente De Soda",
+  title: "Panadería Pastelería y fuente de soda | Pedidos y reservas",
+  description: "Pedidos y reservas online para panaderia, pasteleria y fuente de soda.",
+  applicationName: "Panadería Pastelería y fuente de soda",
   manifest: "/manifest.webmanifest"
 };
 

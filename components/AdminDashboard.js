@@ -14,6 +14,17 @@ const emptyProduct = {
 
 const statuses = ["RECIBIDO", "CONFIRMADO", "EN_PREPARACION", "LISTO", "ENTREGADO", "CANCELADO"];
 
+const statusLabels = {
+  RECIBIDO: "Recibido",
+  CONFIRMADO: "Confirmado",
+  EN_PREPARACION: "En preparacion",
+  LISTO: "Listo",
+  ENTREGADO: "Entregado",
+  CANCELADO: "Cancelado"
+};
+
+const chartColors = ["#8f2740", "#d28b22", "#0f766e", "#4f46e5", "#b42318", "#5b3b2e"];
+
 function money(value) {
   return new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" }).format(Number(value || 0));
 }
@@ -26,23 +37,202 @@ function dateLabel(value) {
   }).format(new Date(value));
 }
 
+function shortDate(value) {
+  return new Intl.DateTimeFormat("es-PE", { day: "2-digit", month: "short" }).format(value);
+}
+
+function monthLabel(value) {
+  return new Intl.DateTimeFormat("es-PE", { month: "short" }).format(value);
+}
+
+function startOfDay(value) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function startOfWeek(value) {
+  const date = startOfDay(value);
+  const day = date.getDay() || 7;
+  date.setDate(date.getDate() - day + 1);
+  return date;
+}
+
+function isActiveSale(order) {
+  return order.status !== "CANCELADO";
+}
+
+function buildDailySales(orders) {
+  const today = startOfDay(new Date());
+  const buckets = [];
+  for (let index = 6; index >= 0; index -= 1) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - index);
+    buckets.push({ label: shortDate(date), key: date.toISOString().slice(0, 10), value: 0 });
+  }
+
+  orders.forEach((order) => {
+    const key = startOfDay(order.createdAt).toISOString().slice(0, 10);
+    const bucket = buckets.find((item) => item.key === key);
+    if (bucket) bucket.value += Number(order.totalAmount || 0);
+  });
+
+  return buckets;
+}
+
+function buildWeeklySales(orders) {
+  const current = startOfWeek(new Date());
+  const buckets = [];
+  for (let index = 5; index >= 0; index -= 1) {
+    const date = new Date(current);
+    date.setDate(current.getDate() - index * 7);
+    buckets.push({ label: `Sem. ${shortDate(date)}`, key: date.toISOString().slice(0, 10), value: 0 });
+  }
+
+  orders.forEach((order) => {
+    const key = startOfWeek(order.createdAt).toISOString().slice(0, 10);
+    const bucket = buckets.find((item) => item.key === key);
+    if (bucket) bucket.value += Number(order.totalAmount || 0);
+  });
+
+  return buckets;
+}
+
+function buildMonthlySales(orders) {
+  const today = new Date();
+  const buckets = [];
+  for (let index = 5; index >= 0; index -= 1) {
+    const date = new Date(today.getFullYear(), today.getMonth() - index, 1);
+    buckets.push({
+      label: monthLabel(date),
+      key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
+      value: 0
+    });
+  }
+
+  orders.forEach((order) => {
+    const date = new Date(order.createdAt);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const bucket = buckets.find((item) => item.key === key);
+    if (bucket) bucket.value += Number(order.totalAmount || 0);
+  });
+
+  return buckets;
+}
+
+function sumOrders(orders, predicate) {
+  return orders.filter(predicate).reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
+}
+
+function BarChart({ data, formatValue = (value) => value }) {
+  const max = Math.max(1, ...data.map((item) => Number(item.value || 0)));
+
+  return (
+    <div className="bar-chart">
+      {data.map((item, index) => {
+        const percent = Math.max(4, (Number(item.value || 0) / max) * 100);
+        return (
+          <div className="bar-row" key={`${item.label}-${index}`}>
+            <span className="bar-label">{item.label}</span>
+            <span className="bar-track">
+              <span className="bar-fill" style={{ width: `${percent}%`, background: chartColors[index % chartColors.length] }} />
+            </span>
+            <strong>{formatValue(item.value)}</strong>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DonutChart({ data }) {
+  const total = data.reduce((sum, item) => sum + Number(item.value || 0), 0);
+  let start = 0;
+  const background = total === 0
+    ? "#eee2d7"
+    : data.map((item, index) => {
+      const end = start + (Number(item.value || 0) / total) * 100;
+      const segment = `${chartColors[index % chartColors.length]} ${start}% ${end}%`;
+      start = end;
+      return segment;
+    }).join(", ");
+
+  return (
+    <div className="donut-wrap">
+      <div className="donut" style={{ background: `conic-gradient(${background})` }}>
+        <span>{total}</span>
+      </div>
+      <div className="legend-list">
+        {data.map((item, index) => (
+          <div className="legend-item" key={item.label}>
+            <span style={{ background: chartColors[index % chartColors.length] }} />
+            <strong>{item.label}</strong>
+            <em>{item.value}</em>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ChartCard({ title, children }) {
+  return (
+    <section className="admin-panel report-card">
+      <h2>{title}</h2>
+      {children}
+    </section>
+  );
+}
+
 export default function AdminDashboard() {
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [productForm, setProductForm] = useState(emptyProduct);
   const [editingId, setEditingId] = useState(null);
   const [activeTab, setActiveTab] = useState("productos");
-  const [mode, setMode] = useState("demo");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const metrics = useMemo(() => {
+  const reports = useMemo(() => {
+    const saleOrders = orders.filter(isActiveSale);
+    const today = startOfDay(new Date());
+    const week = startOfWeek(new Date());
+    const month = new Date(today.getFullYear(), today.getMonth(), 1);
     const openOrders = orders.filter((order) => !["ENTREGADO", "CANCELADO"].includes(order.status)).length;
-    const today = new Date().toISOString().slice(0, 10);
-    const todayOrders = orders.filter((order) => String(order.createdAt).slice(0, 10) === today).length;
+    const todayOrders = orders.filter((order) => startOfDay(order.createdAt).getTime() === today.getTime()).length;
     const inventory = products.reduce((sum, product) => sum + Number(product.stock || 0), 0);
-    return { openOrders, todayOrders, inventory, products: products.length };
+
+    const productMap = new Map();
+    saleOrders.forEach((order) => {
+      order.items.forEach((item) => {
+        const current = productMap.get(item.name) || { label: item.name, value: 0 };
+        current.value += Number(item.lineTotal || Number(item.unitPrice || 0) * Number(item.quantity || 1));
+        productMap.set(item.name, current);
+      });
+    });
+
+    return {
+      openOrders,
+      todayOrders,
+      inventory,
+      productCount: products.length,
+      salesToday: sumOrders(saleOrders, (order) => startOfDay(order.createdAt).getTime() === today.getTime()),
+      salesWeek: sumOrders(saleOrders, (order) => startOfDay(order.createdAt) >= week),
+      salesMonth: sumOrders(saleOrders, (order) => startOfDay(order.createdAt) >= month),
+      dailySales: buildDailySales(saleOrders),
+      weeklySales: buildWeeklySales(saleOrders),
+      monthlySales: buildMonthlySales(saleOrders),
+      statusOrders: statuses.map((status) => ({
+        label: statusLabels[status],
+        value: orders.filter((order) => order.status === status).length
+      })),
+      typeOrders: [
+        { label: "Pedidos", value: orders.filter((order) => order.orderType === "PEDIDO").length },
+        { label: "Reservas", value: orders.filter((order) => order.orderType === "RESERVA").length }
+      ],
+      topProducts: Array.from(productMap.values()).sort((a, b) => b.value - a.value).slice(0, 6)
+    };
   }, [orders, products]);
 
   useEffect(() => {
@@ -71,7 +261,6 @@ export default function AdminDashboard() {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "No se pudo cargar productos.");
     setProducts(data.products || []);
-    setMode(data.mode || "demo");
   }
 
   async function loadOrders() {
@@ -83,7 +272,6 @@ export default function AdminDashboard() {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "No se pudo cargar pedidos.");
     setOrders(data.orders || []);
-    setMode(data.mode || "demo");
   }
 
   function editProduct(product) {
@@ -165,10 +353,10 @@ export default function AdminDashboard() {
     <main className="admin-shell">
       <header className="admin-header">
         <div className="brand-mark">
-          <span className="brand-icon">PA</span>
+          <img className="brand-logo" src="/logo-alarcon.svg" alt="Panaderia Pasteleria y fuente de soda" />
           <span className="brand-copy">
-            <strong>Panaderia Pasteleria Alarcón Fuente De Soda</strong>
-            <span>{mode === "sqlserver" ? "SQL Server conectado" : "Modo demo"}</span>
+            <strong>Panadería Pastelería y fuente de soda</strong>
+            <span>Administracion</span>
           </span>
         </div>
         <div className="nav-actions">
@@ -179,15 +367,18 @@ export default function AdminDashboard() {
 
       <section className="admin-main">
         <div className="metrics-grid">
-          <div className="metric"><span>Pedidos abiertos</span><strong>{metrics.openOrders}</strong></div>
-          <div className="metric"><span>Pedidos hoy</span><strong>{metrics.todayOrders}</strong></div>
-          <div className="metric"><span>Productos</span><strong>{metrics.products}</strong></div>
-          <div className="metric"><span>Stock total</span><strong>{metrics.inventory}</strong></div>
+          <div className="metric"><span>Ventas hoy</span><strong>{money(reports.salesToday)}</strong></div>
+          <div className="metric"><span>Ventas semana</span><strong>{money(reports.salesWeek)}</strong></div>
+          <div className="metric"><span>Ventas mes</span><strong>{money(reports.salesMonth)}</strong></div>
+          <div className="metric"><span>Pedidos abiertos</span><strong>{reports.openOrders}</strong></div>
+          <div className="metric"><span>Productos</span><strong>{reports.productCount}</strong></div>
+          <div className="metric"><span>Stock total</span><strong>{reports.inventory}</strong></div>
         </div>
 
         <div className="tabs" role="tablist">
           <button className={`tab ${activeTab === "productos" ? "active" : ""}`} type="button" onClick={() => setActiveTab("productos")}>Productos</button>
           <button className={`tab ${activeTab === "pedidos" ? "active" : ""}`} type="button" onClick={() => setActiveTab("pedidos")}>Pedidos</button>
+          <button className={`tab ${activeTab === "reportes" ? "active" : ""}`} type="button" onClick={() => setActiveTab("reportes")}>Reportes</button>
         </div>
 
         {notice ? <div className="notice">{notice}</div> : null}
@@ -269,7 +460,9 @@ export default function AdminDashboard() {
               </div>
             </section>
           </div>
-        ) : (
+        ) : null}
+
+        {activeTab === "pedidos" ? (
           <section className="admin-panel">
             <h2>Pedidos y reservas</h2>
             <div className="table-wrap">
@@ -293,8 +486,9 @@ export default function AdminDashboard() {
                       </td>
                       <td>
                         <strong>{order.customer.fullName}</strong><br />
-                        <span>DNI {order.customer.dni}</span><br />
+                        <span>{order.customer.phone || "Sin telefono"}</span><br />
                         <span>{order.customer.deliveryAddress}</span>
+                        {order.notes ? <small>{order.notes}</small> : null}
                       </td>
                       <td>
                         {order.items.map((item) => (
@@ -307,7 +501,7 @@ export default function AdminDashboard() {
                         <label className="field">
                           <span>Estado</span>
                           <select value={order.status} onChange={(event) => changeStatus(order.id, event.target.value)}>
-                            {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
+                            {statuses.map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
                           </select>
                         </label>
                       </td>
@@ -322,7 +516,34 @@ export default function AdminDashboard() {
               </table>
             </div>
           </section>
-        )}
+        ) : null}
+
+        {activeTab === "reportes" ? (
+          <div className="reports-grid">
+            <ChartCard title="Ventas diarias">
+              <BarChart data={reports.dailySales} formatValue={money} />
+            </ChartCard>
+            <ChartCard title="Ventas semanales">
+              <BarChart data={reports.weeklySales} formatValue={money} />
+            </ChartCard>
+            <ChartCard title="Ventas mensuales">
+              <BarChart data={reports.monthlySales} formatValue={money} />
+            </ChartCard>
+            <ChartCard title="Pedidos por estado">
+              <DonutChart data={reports.statusOrders} />
+            </ChartCard>
+            <ChartCard title="Pedidos por tipo">
+              <DonutChart data={reports.typeOrders} />
+            </ChartCard>
+            <ChartCard title="Productos con mas venta">
+              {reports.topProducts.length > 0 ? (
+                <BarChart data={reports.topProducts} formatValue={money} />
+              ) : (
+                <p className="empty-state compact">Todavia no hay ventas registradas.</p>
+              )}
+            </ChartCard>
+          </div>
+        ) : null}
       </section>
     </main>
   );

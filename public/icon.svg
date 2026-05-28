@@ -1,6 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Panaderia Pasteleria Alarcón Fuente De Soda">
-  <rect width="128" height="128" rx="24" fill="#7a2436"/>
-  <path d="M28 72c0-20 16-36 36-36s36 16 36 36v12H28V72Z" fill="#fff1d8"/>
-  <path d="M38 72c0-14 12-26 26-26s26 12 26 26" fill="none" stroke="#c88a28" stroke-width="8" stroke-linecap="round"/>
-  <path d="M36 90h56v12H36z" fill="#0f766e"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Panaderia Pasteleria y fuente de soda">
+  <rect width="128" height="128" rx="24" fill="#fffaf2"/>
+  <circle cx="64" cy="64" r="54" fill="#ffffff" stroke="#111111" stroke-width="7"/>
+  <path d="M36 72h56l-7 23H43z" fill="#111111"/>
+  <path d="M42 56h44c5 0 9 4 9 9v4H33v-4c0-5 4-9 9-9Z" fill="#111111"/>
+  <path d="M45 47c7-16 31-16 38 0 3 2 5 5 5 9H40c0-4 2-7 5-9Z" fill="#111111"/>
+  <path d="M55 77h18v18H55z" fill="#fffaf2"/>
+  <circle cx="50" cy="82" r="4" fill="#fffaf2"/>
+  <circle cx="84" cy="82" r="4" fill="#fffaf2"/>
+  <path d="M64 28v15" stroke="#111111" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="64" cy="43" r="7" fill="#d61f2c"/>
+  <text x="64" y="111" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="900" fill="#111111">PA</text>
 </svg>

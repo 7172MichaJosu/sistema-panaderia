@@ -33,13 +33,13 @@ export default function AdminLogin() {
     <main className="login-page">
       <section className="login-hero">
         <div className="brand-mark">
-          <span className="brand-icon">PA</span>
+          <img className="brand-logo" src="/logo-alarcon.svg" alt="Panaderia Pasteleria y fuente de soda" />
           <span className="brand-copy">
-            <strong>Panaderia Pasteleria Alarcón Fuente De Soda</strong>
+            <strong>Panadería Pastelería y fuente de soda</strong>
             <span>Administracion</span>
           </span>
         </div>
-        <h1>Panel privado para productos y pedidos.</h1>
+        <h1>Panel privado para productos, pedidos y reportes.</h1>
       </section>
       <section className="login-panel">
         <h2>Acceso administrador</h2>

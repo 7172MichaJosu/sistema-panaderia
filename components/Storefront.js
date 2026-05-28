@@ -2,39 +2,84 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+const OWNER_WHATSAPP = "51900987261";
+
 const emptyCustomer = {
   fullName: "",
-  dni: "",
   phone: "",
-  email: "",
   deliveryAddress: "",
   district: ""
 };
+
+const paymentMethods = [
+  "Efectivo",
+  "Yape",
+  "Plin",
+  "Transferencia bancaria",
+  "Tarjeta"
+];
 
 function money(value) {
   return new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" }).format(Number(value || 0));
 }
 
+function dateLabel(value) {
+  if (!value) return "Sin fecha definida";
+  return new Intl.DateTimeFormat("es-PE", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(new Date(value));
+}
+
+function buildWhatsAppUrl(order, customer, paymentMethod) {
+  const itemsText = order.items
+    .map((item) => {
+      const lineTotal = item.lineTotal ?? Number(item.unitPrice || 0) * Number(item.quantity || 1);
+      return `- ${item.quantity} x ${item.name}: ${money(lineTotal)}`;
+    })
+    .join("\n");
+
+  const text = [
+    `Hola, quiero confirmar mi ${order.orderType.toLowerCase()}.`,
+    "",
+    `Codigo: ${order.orderCode}`,
+    `Cliente: ${customer.fullName}`,
+    `Telefono: ${customer.phone}`,
+    `Direccion: ${customer.deliveryAddress}`,
+    customer.district ? `Distrito: ${customer.district}` : "",
+    `Fecha: ${dateLabel(order.fulfillmentDate)}`,
+    `Metodo de pago: ${paymentMethod}`,
+    "",
+    "Productos:",
+    itemsText,
+    "",
+    `Total a pagar: ${money(order.totalAmount)}`
+  ].filter(Boolean).join("\n");
+
+  return `https://wa.me/${OWNER_WHATSAPP}?text=${encodeURIComponent(text)}`;
+}
+
 export default function Storefront() {
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
-  const [mode, setMode] = useState("demo");
   const [orderType, setOrderType] = useState("PEDIDO");
   const [customer, setCustomer] = useState(emptyCustomer);
   const [fulfillmentDate, setFulfillmentDate] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState(paymentMethods[0]);
   const [notes, setNotes] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [whatsappUrl, setWhatsappUrl] = useState("");
 
   useEffect(() => {
     fetch("/api/products")
       .then((response) => response.json())
       .then((data) => {
+        if (data.error) throw new Error(data.error);
         setProducts(data.products || []);
-        setMode(data.mode || "demo");
       })
-      .catch(() => setError("No se pudo cargar el catalogo."));
+      .catch(() => setError("No se pudo cargar el catalogo. Revisa la conexion con la base de datos."));
   }, []);
 
   const total = useMemo(
@@ -45,6 +90,7 @@ export default function Storefront() {
   function addToCart(product) {
     setNotice("");
     setError("");
+    setWhatsappUrl("");
     setCart((current) => {
       const found = current.find((line) => line.productId === product.id);
       if (found) {
@@ -81,15 +127,19 @@ export default function Storefront() {
     setSaving(true);
     setNotice("");
     setError("");
+    setWhatsappUrl("");
+
+    const currentCustomer = { ...customer };
 
     try {
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customer,
+          customer: currentCustomer,
           orderType,
           fulfillmentDate,
+          paymentMethod,
           notes,
           items: cart.map((line) => ({
             productId: line.productId,
@@ -100,11 +150,15 @@ export default function Storefront() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "No se pudo registrar el pedido.");
 
-      setNotice(`Pedido registrado: ${data.order.orderCode}. Total ${money(data.order.totalAmount)}.`);
+      const nextWhatsappUrl = buildWhatsAppUrl(data.order, currentCustomer, paymentMethod);
+      setWhatsappUrl(nextWhatsappUrl);
+      setNotice(`Pedido registrado: ${data.order.orderCode}. Total ${money(data.order.totalAmount)}. Se abrira WhatsApp para enviar el detalle al dueno.`);
       setCart([]);
       setCustomer(emptyCustomer);
       setFulfillmentDate("");
+      setPaymentMethod(paymentMethods[0]);
       setNotes("");
+      window.open(nextWhatsappUrl, "_blank", "noopener,noreferrer");
     } catch (submitError) {
       setError(submitError.message);
     } finally {
@@ -116,28 +170,35 @@ export default function Storefront() {
     <main className="site-shell">
       <header className="topbar">
         <a className="brand-mark" href="/">
-          <span className="brand-icon">PA</span>
+          <img className="brand-logo" src="/logo-alarcon.svg" alt="Panaderia Pasteleria y fuente de soda" />
           <span className="brand-copy">
-            <strong>Panaderia Pasteleria Alarcón Fuente De Soda</strong>
-            <span>Panaderia, pasteleria y fuente de soda</span>
+            <strong>Panadería Pastelería y fuente de soda</strong>
+            <span>Pedidos, reservas y atención por WhatsApp</span>
           </span>
         </a>
         <nav className="nav-actions" aria-label="Acciones principales">
           <a className="button secondary" href="/admin/login">Admin</a>
+          <a className="button whatsapp" href={`https://wa.me/${OWNER_WHATSAPP}`} target="_blank" rel="noreferrer">WhatsApp</a>
           <a className="button" href="#catalogo">Pedir ahora</a>
         </nav>
       </header>
 
       <section className="hero">
         <div className="hero-content">
-          <p className="hero-kicker">Pedidos online y reservas</p>
-          <h1>Panaderia Pasteleria Alarcón Fuente De Soda</h1>
+          <p className="hero-kicker">Panaderia, pasteleria y fuente de soda</p>
+          <h1>Panadería Pastelería y fuente de soda</h1>
           <p>
-            Panes, tortas, postres y salados listos para separar desde celular, tablet o computadora.
+            Elige tus panes, tortas, postres y salados favoritos. Confirma el pedido y envia el detalle directo al WhatsApp del negocio.
           </p>
           <div className="hero-actions">
             <a className="button" href="#catalogo">Ver catalogo</a>
             <a className="button secondary" href="#checkout">Reservar producto</a>
+          </div>
+          <div className="service-strip" aria-label="Servicios destacados">
+            <span>Pedidos online</span>
+            <span>Reservas</span>
+            <span>Pago con Yape, Plin o efectivo</span>
+            <span>Confirmacion por WhatsApp</span>
           </div>
         </div>
       </section>
@@ -146,9 +207,8 @@ export default function Storefront() {
         <div className="section-heading">
           <div>
             <h2>Catalogo</h2>
-            <p>Elige productos y registra tus datos al confirmar el pedido o reserva.</p>
+            <p>Agrega productos, completa tus datos y envia el resumen al WhatsApp de la tienda.</p>
           </div>
-          <span className="mode-pill">{mode === "sqlserver" ? "SQL Server conectado" : "Modo demo"}</span>
         </div>
 
         <div className="catalog-layout">
@@ -172,10 +232,20 @@ export default function Storefront() {
                 </div>
               </article>
             ))}
+            {products.length === 0 && !error ? (
+              <div className="empty-state">Todavia no hay productos disponibles.</div>
+            ) : null}
           </div>
 
           <aside className="cart-panel" id="checkout" aria-label="Pedido actual">
-            <h2>Pedido</h2>
+            <div className="cart-title">
+              <div>
+                <h2>Tu pedido</h2>
+                <p>Resumen para enviar por WhatsApp</p>
+              </div>
+              <span>{cart.length} items</span>
+            </div>
+
             {cart.length === 0 ? (
               <p className="cart-empty">Agrega productos para continuar.</p>
             ) : (
@@ -195,7 +265,7 @@ export default function Storefront() {
                   ))}
                 </div>
                 <div className="cart-total">
-                  <span>Total</span>
+                  <span>Total a pagar</span>
                   <strong>{money(total)}</strong>
                 </div>
               </>
@@ -214,17 +284,9 @@ export default function Storefront() {
                   <span>Nombres completos</span>
                   <input value={customer.fullName} onChange={(event) => setCustomer({ ...customer, fullName: event.target.value })} required />
                 </label>
-                <label className="field">
-                  <span>DNI</span>
-                  <input inputMode="numeric" value={customer.dni} onChange={(event) => setCustomer({ ...customer, dni: event.target.value })} required />
-                </label>
-                <label className="field">
-                  <span>Telefono</span>
-                  <input inputMode="tel" value={customer.phone} onChange={(event) => setCustomer({ ...customer, phone: event.target.value })} />
-                </label>
                 <label className="field full">
-                  <span>Correo</span>
-                  <input type="email" value={customer.email} onChange={(event) => setCustomer({ ...customer, email: event.target.value })} />
+                  <span>Telefono</span>
+                  <input inputMode="tel" value={customer.phone} onChange={(event) => setCustomer({ ...customer, phone: event.target.value })} required />
                 </label>
                 <label className="field full">
                   <span>Lugar o direccion</span>
@@ -239,16 +301,23 @@ export default function Storefront() {
                   <input type="datetime-local" value={fulfillmentDate} onChange={(event) => setFulfillmentDate(event.target.value)} />
                 </label>
                 <label className="field full">
-                  <span>Nota</span>
-                  <textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
+                  <span>Metodo de pago</span>
+                  <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
+                    {paymentMethods.map((method) => <option key={method} value={method}>{method}</option>)}
+                  </select>
+                </label>
+                <label className="field full">
+                  <span>Nota del pedido</span>
+                  <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Ejemplo: sin crema, recoger a las 6 p.m." />
                 </label>
               </div>
-              <button className="button full" type="submit" disabled={cart.length === 0 || saving}>
-                {saving ? "Registrando..." : "Confirmar"}
+              <button className="button whatsapp full" type="submit" disabled={cart.length === 0 || saving}>
+                {saving ? "Registrando..." : "Confirmar y enviar a WhatsApp"}
               </button>
             </form>
 
             {notice ? <div className="notice">{notice}</div> : null}
+            {whatsappUrl ? <a className="button secondary full follow-link" href={whatsappUrl} target="_blank" rel="noreferrer">Abrir WhatsApp otra vez</a> : null}
             {error ? <div className="error">{error}</div> : null}
           </aside>
         </div>
