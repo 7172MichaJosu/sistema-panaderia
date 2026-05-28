@@ -195,28 +195,130 @@ function normalizePeruPhone(value) {
 }
 
 function productImageLink(origin, item) {
-  if (!origin || !item.productId) return "";
-  return `${origin}/api/products/${item.productId}/image`;
+  const productId = item?.productId || item?.id;
+  if (!origin || !productId) return "";
+  return `${origin}/api/products/${productId}/image`;
 }
 
-function buildCustomerStatusUrl(order) {
-  const phone = normalizePeruPhone(order.customer.phone);
+function safeFileName(value) {
+  return String(value || "producto")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase() || "producto";
+}
+
+function loadImageFromBlob(blob) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("No se pudo preparar la imagen JPG."));
+    };
+    image.src = url;
+  });
+}
+
+function canvasToJpegBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("No se pudo convertir la foto a JPG."));
+        return;
+      }
+      resolve(blob);
+    }, "image/jpeg", 0.9);
+  });
+}
+
+async function createProductJpegFile(item, origin) {
+  const imageUrl = productImageLink(origin, item);
+  if (!imageUrl) return null;
+
+  const response = await fetch(imageUrl);
+  if (!response.ok) return null;
+
+  const image = await loadImageFromBlob(await response.blob());
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth || image.width;
+  canvas.height = image.naturalHeight || image.height;
+  const context = canvas.getContext("2d");
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const jpegBlob = await canvasToJpegBlob(canvas);
+  return new File([jpegBlob], `${safeFileName(item.name)}.jpg`, { type: "image/jpeg" });
+}
+
+function downloadFile(file) {
+  const url = URL.createObjectURL(file);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = file.name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function shareStatusWithProductPhoto(text, firstItem, fallbackUrl, origin) {
+  let imageFile = null;
+
+  try {
+    imageFile = await createProductJpegFile(firstItem, origin);
+  } catch (_error) {
+    imageFile = null;
+  }
+
+  if (imageFile && navigator.canShare?.({ files: [imageFile] })) {
+    try {
+      await navigator.share({
+        title: "Estado de tu pedido",
+        text,
+        files: [imageFile]
+      });
+      return "shared";
+    } catch (_error) {
+      // Si el navegador cancela o bloquea compartir archivos, continuamos con WhatsApp normal.
+    }
+  }
+
+  if (imageFile) downloadFile(imageFile);
+  window.open(fallbackUrl, "_blank", "noopener,noreferrer");
+  return imageFile ? "downloaded" : "opened";
+}
+
+function buildCustomerStatusText(order) {
   const products = order.items.map((item) => `${item.quantity} x ${item.name}`).join(", ");
-  const firstImage = productImageLink(window.location.origin, order.items[0] || {});
   const statusText = order.status === "EN_CAMINO"
     ? "tu pedido ya va en camino"
     : `tu pedido esta: ${statusLabels[order.status] || order.status}`;
-  const text = [
+  return [
     `Hola ${order.customer.fullName}, ${statusText}.`,
     `Pedido: ${order.orderCode}`,
     products ? `Producto: ${products}` : "",
     `Total: ${money(order.totalAmount)}`,
-    firstImage ? `Foto: ${firstImage}` : "",
+    "Adjunto una foto JPG del producto.",
     `Tienda: ${STORE_ADDRESS}`,
     "Gracias por comprar en Panaderia Pasteleria y fuente de soda."
   ].filter(Boolean).join("\n");
+}
 
+function buildCustomerStatusUrl(order, text) {
+  const phone = normalizePeruPhone(order.customer.phone);
   return phone ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}` : "";
+}
+
+function productImageSrc(productId) {
+  return `/api/products/${productId}/image`;
+}
+
+function imageFallback(event) {
+  event.currentTarget.src = "/logo-alarcon.svg";
 }
 
 function fileToProductImage(file) {
@@ -380,7 +482,7 @@ export default function AdminDashboard() {
   async function removeProduct(id) {
     setError("");
     setNotice("");
-    const ok = window.confirm("Este producto se ocultara del catalogo publico. Puedes volver a activarlo editandolo.");
+    const ok = window.confirm("Este producto desaparecera del catalogo y del panel. Los pedidos antiguos se conservaran.");
     if (!ok) return;
     const response = await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
     const data = await response.json();
@@ -388,8 +490,21 @@ export default function AdminDashboard() {
       setError(data.error || "No se pudo quitar el producto.");
       return;
     }
-    setNotice("Producto retirado del catalogo.");
+    setNotice("Producto borrado del panel y retirado de la tienda.");
     await loadProducts();
+  }
+
+  async function downloadProductPhoto(item) {
+    setError("");
+    setNotice("");
+    try {
+      const file = await createProductJpegFile(item, window.location.origin);
+      if (!file) throw new Error("Este producto no tiene foto disponible.");
+      downloadFile(file);
+      setNotice("Foto descargada en JPG. Puedes adjuntarla en WhatsApp.");
+    } catch (downloadError) {
+      setError(downloadError.message);
+    }
   }
 
   async function handleImageFile(event) {
@@ -418,18 +533,32 @@ export default function AdminDashboard() {
     const data = await response.json();
     if (!response.ok) {
       setError(data.error || "No se pudo actualizar el pedido.");
-      return;
+      return null;
     }
     setOrders((current) => current.map((order) => (order.id === id ? data.order : order)));
+    return data.order;
   }
 
-  function notifyCustomer(order) {
-    const url = buildCustomerStatusUrl(order);
+  async function notifyCustomer(order) {
+    setError("");
+    setNotice("");
+    const text = buildCustomerStatusText(order);
+    const url = buildCustomerStatusUrl(order, text);
     if (!url) {
       setError("Este pedido no tiene telefono valido para WhatsApp.");
       return;
     }
-    window.open(url, "_blank", "noopener,noreferrer");
+    const shareResult = await shareStatusWithProductPhoto(text, order.items[0] || {}, url, window.location.origin);
+    setNotice(
+      shareResult === "shared"
+        ? "Aviso enviado con foto JPG."
+        : "Se abrio WhatsApp. Si la foto no se adjunta sola, usa el JPG que se descargo."
+    );
+  }
+
+  async function markInTransitAndNotify(order) {
+    const updatedOrder = await changeStatus(order.id, "EN_CAMINO");
+    if (updatedOrder) await notifyCustomer(updatedOrder);
   }
 
   async function logout() {
@@ -460,6 +589,7 @@ export default function AdminDashboard() {
           <div className="metric"><span>Ventas hoy</span><strong>{money(reports.salesToday)}</strong></div>
           <div className="metric"><span>Ventas semana</span><strong>{money(reports.salesWeek)}</strong></div>
           <div className="metric"><span>Ventas mes</span><strong>{money(reports.salesMonth)}</strong></div>
+          <div className="metric"><span>Pedidos hoy</span><strong>{reports.todayOrders}</strong></div>
           <div className="metric"><span>Pedidos abiertos</span><strong>{reports.openOrders}</strong></div>
           <div className="metric"><span>Productos</span><strong>{reports.productCount}</strong></div>
           <div className="metric"><span>Stock total</span><strong>{reports.inventory}</strong></div>
@@ -527,6 +657,7 @@ export default function AdminDashboard() {
                 <table>
                   <thead>
                     <tr>
+                      <th>Foto</th>
                       <th>Producto</th>
                       <th>Categoria</th>
                       <th>Precio</th>
@@ -538,6 +669,9 @@ export default function AdminDashboard() {
                   <tbody>
                     {products.map((product) => (
                       <tr key={product.id}>
+                        <td>
+                          <img className="admin-product-thumb" src={productImageSrc(product.id)} alt={product.name} onError={imageFallback} />
+                        </td>
                         <td>{product.name}</td>
                         <td>{product.category}</td>
                         <td>{money(product.price)}</td>
@@ -546,6 +680,7 @@ export default function AdminDashboard() {
                         <td>
                           <div className="row-actions">
                             <button className="button secondary" type="button" onClick={() => editProduct(product)}>Editar</button>
+                            <button className="button secondary" type="button" onClick={() => downloadProductPhoto(product)}>Foto JPG</button>
                             <button className="button danger" type="button" onClick={() => removeProduct(product.id)}>Borrar</button>
                           </div>
                         </td>
@@ -589,8 +724,9 @@ export default function AdminDashboard() {
                       <td>
                         {order.items.map((item) => (
                           <div className="order-product-line" key={`${order.id}-${item.productId}`}>
-                            <img src={`/api/products/${item.productId}/image`} alt={item.name} />
+                            <img src={productImageSrc(item.productId)} alt={item.name} onError={imageFallback} />
                             <span>{item.quantity} x {item.name}</span>
+                            <button className="mini-link" type="button" onClick={() => downloadProductPhoto(item)}>JPG</button>
                           </div>
                         ))}
                       </td>
@@ -605,6 +741,9 @@ export default function AdminDashboard() {
                         </label>
                         <button className="button secondary full" type="button" onClick={() => notifyCustomer(order)}>
                           Avisar por WhatsApp
+                        </button>
+                        <button className="button accent full" type="button" onClick={() => markInTransitAndNotify(order)}>
+                          En camino + WhatsApp
                         </button>
                       </td>
                     </tr>

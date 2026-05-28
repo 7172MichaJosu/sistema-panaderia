@@ -258,6 +258,13 @@ a {
   border-radius: 8px;
   background: var(--surface);
   box-shadow: 0 8px 22px rgba(36, 27, 31, 0.06);
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.product-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(122, 36, 54, 0.32);
+  box-shadow: 0 18px 38px rgba(36, 27, 31, 0.13);
 }
 
 .product-media {
@@ -342,11 +349,20 @@ a {
 
 .cart-line {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 48px 1fr auto;
   gap: 8px;
   align-items: center;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--line);
+}
+
+.cart-line-image {
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--surface-strong);
 }
 
 .cart-line strong {
@@ -668,7 +684,7 @@ a {
 
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 14px;
   margin-bottom: 20px;
 }
@@ -738,7 +754,7 @@ td small {
 
 .order-product-line {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   margin-bottom: 8px;
@@ -750,6 +766,30 @@ td small {
   border: 1px solid var(--line);
   border-radius: 8px;
   object-fit: cover;
+  background: var(--surface-strong);
+}
+
+.admin-product-thumb {
+  width: 58px;
+  height: 58px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--surface-strong);
+}
+
+.mini-link {
+  min-height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--brand);
+  padding: 5px 8px;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.mini-link:hover {
   background: var(--surface-strong);
 }
 

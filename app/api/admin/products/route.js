@@ -7,7 +7,7 @@ export async function GET() {
   if (!auth.ok) return auth.response;
 
   try {
-    const products = await listProducts(true);
+    const products = await listProducts(false);
     return Response.json({ products, mode: getDataMode() });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });

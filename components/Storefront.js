@@ -33,24 +33,113 @@ function dateLabel(value) {
 }
 
 function productImageLink(origin, item) {
-  if (!origin || !item.productId) return "";
-  return `${origin}/api/products/${item.productId}/image`;
+  const productId = item?.productId || item?.id;
+  if (!origin || !productId) return "";
+  return `${origin}/api/products/${productId}/image`;
 }
 
-function buildWhatsAppUrl(order, customer, paymentMethod, cartItems, origin) {
+function safeFileName(value) {
+  return String(value || "producto")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase() || "producto";
+}
+
+function loadImageFromBlob(blob) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("No se pudo preparar la imagen JPG."));
+    };
+    image.src = url;
+  });
+}
+
+function canvasToJpegBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("No se pudo convertir la foto a JPG."));
+        return;
+      }
+      resolve(blob);
+    }, "image/jpeg", 0.9);
+  });
+}
+
+async function createProductJpegFile(item, origin) {
+  const imageUrl = productImageLink(origin, item);
+  if (!imageUrl) return null;
+
+  const response = await fetch(imageUrl);
+  if (!response.ok) return null;
+
+  const image = await loadImageFromBlob(await response.blob());
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth || image.width;
+  canvas.height = image.naturalHeight || image.height;
+  const context = canvas.getContext("2d");
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const jpegBlob = await canvasToJpegBlob(canvas);
+  return new File([jpegBlob], `${safeFileName(item.name)}.jpg`, { type: "image/jpeg" });
+}
+
+function downloadFile(file) {
+  const url = URL.createObjectURL(file);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = file.name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function shareOrderWithProductPhoto(text, firstItem, fallbackUrl, origin) {
+  let imageFile = null;
+
+  try {
+    imageFile = await createProductJpegFile(firstItem, origin);
+  } catch (_error) {
+    imageFile = null;
+  }
+
+  if (imageFile && navigator.canShare?.({ files: [imageFile] })) {
+    try {
+      await navigator.share({
+        title: "Pedido de Panaderia Pasteleria y fuente de soda",
+        text,
+        files: [imageFile]
+      });
+      return "shared";
+    } catch (_error) {
+      // Si el navegador cancela o bloquea compartir archivos, continuamos con WhatsApp normal.
+    }
+  }
+
+  if (imageFile) downloadFile(imageFile);
+  window.open(fallbackUrl, "_blank", "noopener,noreferrer");
+  return imageFile ? "downloaded" : "opened";
+}
+
+function buildWhatsAppText(order, customer, paymentMethod, cartItems) {
   const sourceItems = cartItems.length > 0 ? cartItems : order.items;
   const itemsText = sourceItems
     .map((item) => {
       const lineTotal = item.lineTotal ?? Number(item.unitPrice || 0) * Number(item.quantity || 1);
-      const imageUrl = productImageLink(origin, item);
-      return [
-        `- ${item.quantity} x ${item.name}: ${money(lineTotal)}`,
-        imageUrl ? `  Foto: ${imageUrl}` : ""
-      ].filter(Boolean).join("\n");
+      return `- ${item.quantity} x ${item.name}: ${money(lineTotal)}`;
     })
     .join("\n");
 
-  const text = [
+  return [
     `Hola, quiero confirmar mi ${order.orderType.toLowerCase()}.`,
     "",
     `Codigo: ${order.orderCode}`,
@@ -67,9 +156,12 @@ function buildWhatsAppUrl(order, customer, paymentMethod, cartItems, origin) {
     "",
     `Total a pagar: ${money(order.totalAmount)}`,
     "",
+    "Adjunto la foto del producto en JPG.",
     "Por favor envie aqui la captura de pago del pedido si pago por Yape, Plin, transferencia o tarjeta."
   ].filter(Boolean).join("\n");
+}
 
+function buildWhatsAppUrl(text) {
   return `https://wa.me/${OWNER_WHATSAPP}?text=${encodeURIComponent(text)}`;
 }
 
@@ -165,21 +257,31 @@ export default function Storefront() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "No se pudo registrar el pedido.");
 
-      const nextWhatsappUrl = buildWhatsAppUrl(
+      const orderedItems = [...cart];
+      const nextWhatsappText = buildWhatsAppText(
         data.order,
         currentCustomer,
         paymentMethod,
-        cart,
+        orderedItems
+      );
+      const nextWhatsappUrl = buildWhatsAppUrl(nextWhatsappText);
+      setWhatsappUrl(nextWhatsappUrl);
+      const shareResult = await shareOrderWithProductPhoto(
+        nextWhatsappText,
+        orderedItems[0] || data.order.items[0],
+        nextWhatsappUrl,
         window.location.origin
       );
-      setWhatsappUrl(nextWhatsappUrl);
-      setNotice(`Pedido registrado: ${data.order.orderCode}. Total ${money(data.order.totalAmount)}. Se abrira WhatsApp para enviar el detalle al dueno.`);
+      setNotice(
+        shareResult === "shared"
+          ? `Pedido registrado: ${data.order.orderCode}. Se compartio el detalle con la foto JPG.`
+          : `Pedido registrado: ${data.order.orderCode}. Total ${money(data.order.totalAmount)}. Si WhatsApp no adjunta la foto, usa el JPG que se descargo.`
+      );
       setCart([]);
       setCustomer(emptyCustomer);
       setFulfillmentDate("");
       setPaymentMethod(paymentMethods[0]);
       setNotes("");
-      window.open(nextWhatsappUrl, "_blank", "noopener,noreferrer");
     } catch (submitError) {
       setError(submitError.message);
     } finally {
@@ -236,7 +338,14 @@ export default function Storefront() {
           <div className="product-grid">
             {products.map((product) => (
               <article className="product-card" key={product.id}>
-                <img className="product-media" src={product.imageUrl} alt={product.name} />
+                <img
+                  className="product-media"
+                  src={`/api/products/${product.id}/image`}
+                  alt={product.name}
+                  onError={(event) => {
+                    event.currentTarget.src = "/logo-alarcon.svg";
+                  }}
+                />
                 <div className="product-body">
                   <div className="product-meta">
                     <span>{product.category}</span>
@@ -274,6 +383,14 @@ export default function Storefront() {
                 <div className="cart-lines">
                   {cart.map((line) => (
                     <div className="cart-line" key={line.productId}>
+                      <img
+                        className="cart-line-image"
+                        src={`/api/products/${line.productId}/image`}
+                        alt={line.name}
+                        onError={(event) => {
+                          event.currentTarget.src = "/logo-alarcon.svg";
+                        }}
+                      />
                       <div>
                         <strong>{line.name}</strong>
                         <span>{money(line.price)} x {line.quantity}</span>
