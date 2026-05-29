@@ -1,4 +1,4 @@
-import { removeProduct, updateProduct } from "@/lib/repository";
+import { hideProduct, updateProduct } from "@/lib/repository";
 import { requireAdmin } from "@/lib/session";
 import { validateProductPayload } from "@/lib/validators";
 
@@ -20,7 +20,7 @@ export async function DELETE(_request, { params }) {
   if (!auth.ok) return auth.response;
 
   try {
-    const product = await removeProduct(params.id);
+    const product = await hideProduct(params.id);
     return Response.json({ product });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 400 });

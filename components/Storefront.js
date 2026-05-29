@@ -103,7 +103,7 @@ function downloadFile(file) {
   URL.revokeObjectURL(url);
 }
 
-async function shareOrderWithProductPhoto(text, firstItem, fallbackUrl, origin) {
+async function openOrderWhatsAppWithProductPhoto(text, firstItem, fallbackUrl, origin) {
   let imageFile = null;
 
   try {
@@ -112,21 +112,8 @@ async function shareOrderWithProductPhoto(text, firstItem, fallbackUrl, origin) 
     imageFile = null;
   }
 
-  if (imageFile && navigator.canShare?.({ files: [imageFile] })) {
-    try {
-      await navigator.share({
-        title: "Pedido de Panaderia Pasteleria y fuente de soda",
-        text,
-        files: [imageFile]
-      });
-      return "shared";
-    } catch (_error) {
-      // Si el navegador cancela o bloquea compartir archivos, continuamos con WhatsApp normal.
-    }
-  }
-
   if (imageFile) downloadFile(imageFile);
-  window.open(fallbackUrl, "_blank", "noopener,noreferrer");
+  window.location.href = fallbackUrl;
   return imageFile ? "downloaded" : "opened";
 }
 
@@ -156,8 +143,8 @@ function buildWhatsAppText(order, customer, paymentMethod, cartItems) {
     "",
     `Total a pagar: ${money(order.totalAmount)}`,
     "",
-    "Adjunto la foto del producto en JPG.",
-    "Por favor envie aqui la captura de pago del pedido si pago por Yape, Plin, transferencia o tarjeta."
+    "La foto JPG del producto se descargara para adjuntarla aqui.",
+    "Por favor envia aqui la captura de pago del pedido si pagaste por Yape, Plin, transferencia o tarjeta."
   ].filter(Boolean).join("\n");
 }
 
@@ -266,16 +253,16 @@ export default function Storefront() {
       );
       const nextWhatsappUrl = buildWhatsAppUrl(nextWhatsappText);
       setWhatsappUrl(nextWhatsappUrl);
-      const shareResult = await shareOrderWithProductPhoto(
+      const shareResult = await openOrderWhatsAppWithProductPhoto(
         nextWhatsappText,
         orderedItems[0] || data.order.items[0],
         nextWhatsappUrl,
         window.location.origin
       );
       setNotice(
-        shareResult === "shared"
-          ? `Pedido registrado: ${data.order.orderCode}. Se compartio el detalle con la foto JPG.`
-          : `Pedido registrado: ${data.order.orderCode}. Total ${money(data.order.totalAmount)}. Si WhatsApp no adjunta la foto, usa el JPG que se descargo.`
+        shareResult === "downloaded"
+          ? `Pedido registrado: ${data.order.orderCode}. WhatsApp se abrira con el mensaje listo y se descargo la foto JPG para adjuntarla.`
+          : `Pedido registrado: ${data.order.orderCode}. WhatsApp se abrira con el mensaje listo.`
       );
       setCart([]);
       setCustomer(emptyCustomer);

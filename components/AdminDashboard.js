@@ -26,6 +26,15 @@ const statusLabels = {
   CANCELADO: "Cancelado"
 };
 
+const messageStatuses = ["EN_CAMINO", "LISTO", "ENTREGADO", "CANCELADO"];
+
+const statusMessages = {
+  EN_CAMINO: "tu pedido ya va en camino",
+  LISTO: "tu pedido ya esta listo para recoger o recibir",
+  ENTREGADO: "tu pedido ya fue entregado. Muchas gracias por confiar en nosotros",
+  CANCELADO: "tu pedido fue cancelado. Si necesitas ayuda, escribenos por este medio"
+};
+
 const chartColors = ["#8f2740", "#d28b22", "#0f766e", "#4f46e5", "#b42318", "#5b3b2e"];
 
 function money(value) {
@@ -265,7 +274,7 @@ function downloadFile(file) {
   URL.revokeObjectURL(url);
 }
 
-async function shareStatusWithProductPhoto(text, firstItem, fallbackUrl, origin) {
+async function openStatusWhatsAppWithProductPhoto(text, firstItem, fallbackUrl, origin) {
   let imageFile = null;
 
   try {
@@ -274,35 +283,20 @@ async function shareStatusWithProductPhoto(text, firstItem, fallbackUrl, origin)
     imageFile = null;
   }
 
-  if (imageFile && navigator.canShare?.({ files: [imageFile] })) {
-    try {
-      await navigator.share({
-        title: "Estado de tu pedido",
-        text,
-        files: [imageFile]
-      });
-      return "shared";
-    } catch (_error) {
-      // Si el navegador cancela o bloquea compartir archivos, continuamos con WhatsApp normal.
-    }
-  }
-
   if (imageFile) downloadFile(imageFile);
   window.open(fallbackUrl, "_blank", "noopener,noreferrer");
   return imageFile ? "downloaded" : "opened";
 }
 
-function buildCustomerStatusText(order) {
+function buildCustomerStatusText(order, selectedStatus = order.status) {
   const products = order.items.map((item) => `${item.quantity} x ${item.name}`).join(", ");
-  const statusText = order.status === "EN_CAMINO"
-    ? "tu pedido ya va en camino"
-    : `tu pedido esta: ${statusLabels[order.status] || order.status}`;
+  const statusText = statusMessages[selectedStatus] || `tu pedido esta: ${statusLabels[selectedStatus] || selectedStatus}`;
   return [
     `Hola ${order.customer.fullName}, ${statusText}.`,
     `Pedido: ${order.orderCode}`,
     products ? `Producto: ${products}` : "",
     `Total: ${money(order.totalAmount)}`,
-    "Adjunto una foto JPG del producto.",
+    "La foto JPG del producto se descargara para adjuntarla en este chat.",
     `Tienda: ${STORE_ADDRESS}`,
     "Gracias por comprar en Panaderia Pasteleria y fuente de soda."
   ].filter(Boolean).join("\n");
@@ -358,6 +352,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
+  const [messageStatusByOrder, setMessageStatusByOrder] = useState({});
 
   const reports = useMemo(() => {
     const saleOrders = orders.filter(isActiveSale);
@@ -479,18 +474,22 @@ export default function AdminDashboard() {
     }
   }
 
-  async function removeProduct(id) {
+  function selectedMessageStatus(order) {
+    return messageStatusByOrder[order.id] || (messageStatuses.includes(order.status) ? order.status : "EN_CAMINO");
+  }
+
+  async function hideProduct(id) {
     setError("");
     setNotice("");
-    const ok = window.confirm("Este producto desaparecera del catalogo y del panel. Los pedidos antiguos se conservaran.");
+    const ok = window.confirm("Este producto se ocultara del catalogo publico. Los pedidos antiguos se conservaran.");
     if (!ok) return;
     const response = await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
     const data = await response.json();
     if (!response.ok) {
-      setError(data.error || "No se pudo quitar el producto.");
+      setError(data.error || "No se pudo ocultar el producto.");
       return;
     }
-    setNotice("Producto borrado del panel y retirado de la tienda.");
+    setNotice("Producto ocultado. Ya no aparece en el catalogo publico.");
     await loadProducts();
   }
 
@@ -539,26 +538,27 @@ export default function AdminDashboard() {
     return data.order;
   }
 
-  async function notifyCustomer(order) {
+  async function notifyCustomer(order, selectedStatus = order.status) {
     setError("");
     setNotice("");
-    const text = buildCustomerStatusText(order);
+    const text = buildCustomerStatusText(order, selectedStatus);
     const url = buildCustomerStatusUrl(order, text);
     if (!url) {
       setError("Este pedido no tiene telefono valido para WhatsApp.");
       return;
     }
-    const shareResult = await shareStatusWithProductPhoto(text, order.items[0] || {}, url, window.location.origin);
+    const shareResult = await openStatusWhatsAppWithProductPhoto(text, order.items[0] || {}, url, window.location.origin);
     setNotice(
-      shareResult === "shared"
-        ? "Aviso enviado con foto JPG."
-        : "Se abrio WhatsApp. Si la foto no se adjunta sola, usa el JPG que se descargo."
+      shareResult === "downloaded"
+        ? "Se abrio WhatsApp con el mensaje listo. Adjunta el JPG descargado para enviar tambien la foto."
+        : "Se abrio WhatsApp con el mensaje listo."
     );
   }
 
-  async function markInTransitAndNotify(order) {
-    const updatedOrder = await changeStatus(order.id, "EN_CAMINO");
-    if (updatedOrder) await notifyCustomer(updatedOrder);
+  async function sendSelectedStatusMessage(order) {
+    const nextStatus = selectedMessageStatus(order);
+    const updatedOrder = await changeStatus(order.id, nextStatus);
+    if (updatedOrder) await notifyCustomer(updatedOrder, nextStatus);
   }
 
   async function logout() {
@@ -681,7 +681,7 @@ export default function AdminDashboard() {
                           <div className="row-actions">
                             <button className="button secondary" type="button" onClick={() => editProduct(product)}>Editar</button>
                             <button className="button secondary" type="button" onClick={() => downloadProductPhoto(product)}>Foto JPG</button>
-                            <button className="button danger" type="button" onClick={() => removeProduct(product.id)}>Borrar</button>
+                            <button className="button danger" type="button" onClick={() => hideProduct(product.id)}>Ocultar</button>
                           </div>
                         </td>
                       </tr>
@@ -733,18 +733,25 @@ export default function AdminDashboard() {
                       <td>{dateLabel(order.fulfillmentDate || order.createdAt)}</td>
                       <td>{money(order.totalAmount)}</td>
                       <td>
-                        <label className="field">
-                          <span>Estado</span>
-                          <select value={order.status} onChange={(event) => changeStatus(order.id, event.target.value)}>
-                            {statuses.map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}
-                          </select>
-                        </label>
-                        <button className="button secondary full" type="button" onClick={() => notifyCustomer(order)}>
-                          Avisar por WhatsApp
-                        </button>
-                        <button className="button accent full" type="button" onClick={() => markInTransitAndNotify(order)}>
-                          En camino + WhatsApp
-                        </button>
+                        <div className="order-status-actions">
+                          <span className="status">Actual: {statusLabels[order.status] || order.status}</span>
+                          <label className="field">
+                            <span>Seleccionar mensaje</span>
+                            <select
+                              value={selectedMessageStatus(order)}
+                              onChange={(event) =>
+                                setMessageStatusByOrder((current) => ({ ...current, [order.id]: event.target.value }))
+                              }
+                            >
+                              {messageStatuses.map((status) => (
+                                <option key={status} value={status}>{statusLabels[status]}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <button className="button accent full" type="button" onClick={() => sendSelectedStatusMessage(order)}>
+                            Enviar mensaje
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
